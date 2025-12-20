@@ -1,0 +1,1 @@
+Lets create a simple web app with a python backend.  The goal of this program will be to configure submittal drawings for steel tanks.  It will take simple configuration options such as tank specifcation, size/capacity, and give a 2d  drawings to show the details such as: spec information, material information, nozzle schedule and tank and nozzle dimensions.
