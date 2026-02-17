@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tank Submittal Configurator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <style>
+      :root {
+        --pico-font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 2rem auto;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+      }
+
+      #drawing svg {
+        width: 100%;
+        height: auto;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.5rem;
+      }
+
+      .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 8px;
+        background: #e0f2fe;
+        color: #1d4ed8;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+
+      table {
+        width: 100%;
+      }
+
+      table th {
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tank Submittal Configurator</h1>
+      <p>Enter a few design parameters to generate a submittal-ready summary with a quick 2D elevation sketch.</p>
+
+      <div class="grid">
+        <section class="card">
+          <h3>Design inputs</h3>
+          <form id="config-form">
+            <label>
+              Tank specification
+              <input name="spec" type="text" placeholder="AWWA D103" value="AWWA D103" required />
+            </label>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem">
+              <label>
+                Diameter (in)
+                <input name="diameter_in" type="number" min="1" value="360" required />
+              </label>
+              <label>
+                Shell height (in)
+                <input name="shell_height_in" type="number" min="1" value="480" required />
+              </label>
+              <label>
+                Capacity (gal)
+                <input name="nominal_capacity_gal" type="number" min="1" value="250000" required />
+              </label>
+            </div>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem">
+              <label>
+                Shell material
+                <input name="shell_material" type="text" placeholder="ASTM A36" value="ASTM A36" required />
+              </label>
+              <label>
+                Roof type
+                <input name="roof_type" type="text" placeholder="Low cone roof" value="Low cone roof" required />
+              </label>
+              <label>
+                Nozzles
+                <input name="nozzle_count" type="number" min="1" max="12" value="3" required />
+              </label>
+            </div>
+            <button type="submit">Generate drawing</button>
+          </form>
+        </section>
+
+        <section class="card" id="summary">
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <h3>Submittal summary</h3>
+            <span class="badge" id="spec-badge">Spec: –</span>
+          </div>
+          <p id="material">Material: –</p>
+          <p id="dimensions">Dimensions: –</p>
+          <p id="capacity">Capacity: –</p>
+          <p id="roof">Roof: –</p>
+          <hr />
+          <h4>Nozzle schedule</h4>
+          <div class="overflow-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nozzle</th>
+                  <th>Size (in)</th>
+                  <th>Elevation (in)</th>
+                  <th>Orientation</th>
+                </tr>
+              </thead>
+              <tbody id="nozzles"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" id="drawing">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <h3>2D elevation</h3>
+          <small id="overall-height">Overall height: –</small>
+        </div>
+        <div id="svg-container" aria-live="polite" role="img">
+          <p>Submit a configuration to see a preview.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("config-form");
+      const specBadge = document.getElementById("spec-badge");
+      const material = document.getElementById("material");
+      const dimensions = document.getElementById("dimensions");
+      const capacity = document.getElementById("capacity");
+      const roof = document.getElementById("roof");
+      const nozzlesBody = document.getElementById("nozzles");
+      const svgContainer = document.getElementById("svg-container");
+      const overallHeight = document.getElementById("overall-height");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+        payload.diameter_in = Number(payload.diameter_in);
+        payload.shell_height_in = Number(payload.shell_height_in);
+        payload.nominal_capacity_gal = Number(payload.nominal_capacity_gal);
+        payload.nozzle_count = Number(payload.nozzle_count);
+
+        const response = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          alert("Could not generate the drawing. Please check your inputs.");
+          return;
+        }
+
+        const data = await response.json();
+        specBadge.textContent = `Spec: ${payload.spec}`;
+        material.textContent = `Material: ${payload.shell_material}`;
+        dimensions.textContent = `Diameter: ${data.diameter_in.toFixed(1)} in | Shell height: ${data.shell_height_in.toFixed(1)} in`;
+        capacity.textContent = `Nominal capacity: ${payload.nominal_capacity_gal.toLocaleString()} gal`;
+        roof.textContent = `Roof: ${payload.roof_type}`;
+        overallHeight.textContent = `Overall height (roof + shell): ${data.overall_height_in.toFixed(1)} in`;
+
+        nozzlesBody.innerHTML = data.nozzles
+          .map(
+            (nozzle) => `
+              <tr>
+                <td>${nozzle.nozzle}</td>
+                <td>${nozzle.size_in.toFixed(1)}</td>
+                <td>${nozzle.elevation_in.toFixed(1)}</td>
+                <td>${nozzle.orientation}</td>
+              </tr>`
+          )
+          .join("");
+
+        svgContainer.innerHTML = data.svg;
+      });
+    </script>
+  </body>
+</html>
