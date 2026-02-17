@@ -3,65 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tank Submittal Configurator</title>
+    <title>Horizontal Tank Submittal Configurator</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <style>
       :root {
         --pico-font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-
-      main {
-        max-width: 1100px;
-        margin: 2rem auto;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 1.5rem;
-      }
-
+      main { max-width: 1100px; margin: 2rem auto; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+      .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08); }
+      .badge { display: inline-flex; align-items: center; padding: 0.2rem 0.6rem; border-radius: 8px; background: #e0f2fe; color: #1d4ed8; font-weight: 600; font-size: 0.9rem; }
+      table { width: 100%; }
+      table th { white-space: nowrap; }
+      #svg-container { overflow: hidden; max-width: 100%; }
       #drawing svg {
+        display: block;
         width: 100%;
+        max-width: 100%;
+        max-height: 60vh;
         height: auto;
+        margin: 0 auto;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         padding: 0.5rem;
       }
-
-      .card {
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
-      }
-
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.2rem 0.6rem;
-        border-radius: 8px;
-        background: #e0f2fe;
-        color: #1d4ed8;
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-
-      table {
-        width: 100%;
-      }
-
-      table th {
-        white-space: nowrap;
-      }
+      .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
     </style>
   </head>
   <body>
     <main>
-      <h1>Tank Submittal Configurator</h1>
-      <p>Enter a few design parameters to generate a submittal-ready summary with a quick 2D elevation sketch.</p>
+      <h1>Horizontal Tank Submittal Configurator</h1>
+      <p>Generate a horizontal tank sketch, nozzle schedule, and downloadable PDF submittal summary.</p>
 
       <div class="grid">
         <section class="card">
@@ -69,20 +42,20 @@
           <form id="config-form">
             <label>
               Tank specification
-              <input name="spec" type="text" placeholder="AWWA D103" value="AWWA D103" required />
+              <input name="spec" type="text" placeholder="UL-142" value="UL-142" required />
             </label>
             <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem">
               <label>
                 Diameter (in)
-                <input name="diameter_in" type="number" min="1" value="360" required />
+                <input name="diameter_in" type="number" min="1" value="96" required />
               </label>
               <label>
-                Shell height (in)
-                <input name="shell_height_in" type="number" min="1" value="480" required />
+                Shell length (in)
+                <input name="shell_length_in" type="number" min="1" value="360" required />
               </label>
               <label>
                 Capacity (gal)
-                <input name="nominal_capacity_gal" type="number" min="1" value="250000" required />
+                <input name="nominal_capacity_gal" type="number" min="1" value="10000" required />
               </label>
             </div>
             <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem">
@@ -91,15 +64,18 @@
                 <input name="shell_material" type="text" placeholder="ASTM A36" value="ASTM A36" required />
               </label>
               <label>
-                Roof type
-                <input name="roof_type" type="text" placeholder="Low cone roof" value="Low cone roof" required />
+                Head type
+                <input name="head_type" type="text" placeholder="2:1 Elliptical" value="2:1 Elliptical" required />
               </label>
               <label>
                 Nozzles
                 <input name="nozzle_count" type="number" min="1" max="12" value="3" required />
               </label>
             </div>
-            <button type="submit">Generate drawing</button>
+            <div class="actions">
+              <button type="submit">Generate drawing</button>
+              <button type="button" id="download-pdf" disabled>Download PDF</button>
+            </div>
           </form>
         </section>
 
@@ -111,7 +87,7 @@
           <p id="material">Material: –</p>
           <p id="dimensions">Dimensions: –</p>
           <p id="capacity">Capacity: –</p>
-          <p id="roof">Roof: –</p>
+          <p id="head">Head type: –</p>
           <hr />
           <h4>Nozzle schedule</h4>
           <div class="overflow-auto">
@@ -120,7 +96,7 @@
                 <tr>
                   <th>Nozzle</th>
                   <th>Size (in)</th>
-                  <th>Elevation (in)</th>
+                  <th>Location from left (in)</th>
                   <th>Orientation</th>
                 </tr>
               </thead>
@@ -133,7 +109,7 @@
       <section class="card" id="drawing">
         <div style="display: flex; justify-content: space-between; align-items: center">
           <h3>2D elevation</h3>
-          <small id="overall-height">Overall height: –</small>
+          <small id="overall-size">Overall size: –</small>
         </div>
         <div id="svg-container" aria-live="polite" role="img">
           <p>Submit a configuration to see a preview.</p>
@@ -147,19 +123,27 @@
       const material = document.getElementById("material");
       const dimensions = document.getElementById("dimensions");
       const capacity = document.getElementById("capacity");
-      const roof = document.getElementById("roof");
+      const head = document.getElementById("head");
       const nozzlesBody = document.getElementById("nozzles");
       const svgContainer = document.getElementById("svg-container");
-      const overallHeight = document.getElementById("overall-height");
+      const overallSize = document.getElementById("overall-size");
+      const downloadPdfButton = document.getElementById("download-pdf");
 
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
+      let latestPayload = null;
+
+      function parsePayload() {
         const formData = new FormData(form);
         const payload = Object.fromEntries(formData.entries());
         payload.diameter_in = Number(payload.diameter_in);
-        payload.shell_height_in = Number(payload.shell_height_in);
+        payload.shell_length_in = Number(payload.shell_length_in);
         payload.nominal_capacity_gal = Number(payload.nominal_capacity_gal);
         payload.nozzle_count = Number(payload.nozzle_count);
+        return payload;
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = parsePayload();
 
         const response = await fetch("/api/config", {
           method: "POST",
@@ -173,12 +157,15 @@
         }
 
         const data = await response.json();
+        latestPayload = payload;
+        downloadPdfButton.disabled = false;
+
         specBadge.textContent = `Spec: ${payload.spec}`;
         material.textContent = `Material: ${payload.shell_material}`;
-        dimensions.textContent = `Diameter: ${data.diameter_in.toFixed(1)} in | Shell height: ${data.shell_height_in.toFixed(1)} in`;
+        dimensions.textContent = `Diameter: ${data.diameter_in.toFixed(1)} in | Shell length: ${data.shell_length_in.toFixed(1)} in`;
         capacity.textContent = `Nominal capacity: ${payload.nominal_capacity_gal.toLocaleString()} gal`;
-        roof.textContent = `Roof: ${payload.roof_type}`;
-        overallHeight.textContent = `Overall height (roof + shell): ${data.overall_height_in.toFixed(1)} in`;
+        head.textContent = `Head type: ${payload.head_type}`;
+        overallSize.textContent = `Overall length: ${data.overall_length_in.toFixed(1)} in | Overall height: ${data.overall_height_in.toFixed(1)} in`;
 
         nozzlesBody.innerHTML = data.nozzles
           .map(
@@ -186,13 +173,38 @@
               <tr>
                 <td>${nozzle.nozzle}</td>
                 <td>${nozzle.size_in.toFixed(1)}</td>
-                <td>${nozzle.elevation_in.toFixed(1)}</td>
+                <td>${nozzle.location_from_left_in.toFixed(1)}</td>
                 <td>${nozzle.orientation}</td>
               </tr>`
           )
           .join("");
 
         svgContainer.innerHTML = data.svg;
+      });
+
+      downloadPdfButton.addEventListener("click", async () => {
+        if (!latestPayload) return;
+
+        const response = await fetch("/api/config/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(latestPayload),
+        });
+
+        if (!response.ok) {
+          alert("Could not create PDF.");
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "horizontal_tank_submittal.pdf";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.URL.revokeObjectURL(url);
       });
     </script>
   </body>
